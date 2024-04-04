@@ -1,5 +1,6 @@
 import json
 import os
+import random
 import time
 from typing import Any, Dict
 
@@ -50,6 +51,8 @@ class OpenAIChatCompletionsClient(LLMClient):
         address = os.environ.get("OPENAI_API_BASE")
         if not address:
             raise ValueError("the environment variable OPENAI_API_BASE must be set.")
+        address_list = address.split(";")
+        address = random.choice(address_list)
         key = os.environ.get("OPENAI_API_KEY")
         if not key:
             raise ValueError("the environment variable OPENAI_API_KEY must be set.")
@@ -87,7 +90,7 @@ class OpenAIChatCompletionsClient(LLMClient):
                         error_msg = data["error"]["message"]
                         error_response_code = data["error"]["code"]
                         raise RuntimeError(data["error"]["message"])
-                        
+
                     delta = data["choices"][0]["delta"]
                     if delta.get("content", None):
                         if not ttft:

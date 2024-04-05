@@ -21,10 +21,11 @@ class OpenAIChatCompletionsClient(LLMClient):
         prompt, prompt_len = prompt
 
         message = [
-            {"role": "system", "content": ""},
             {"role": "user", "content": prompt},
         ]
         model = request_config.model
+        if not "Mistral" in model:
+            message = [{"role": "system", "content": ""}] + message
         body = {
             "model": model,
             "messages": message,

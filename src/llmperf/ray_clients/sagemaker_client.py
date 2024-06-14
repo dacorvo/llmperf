@@ -60,7 +60,9 @@ class SageMakerClient(LLMClient):
             "parameters": {
                 **request_config.sampling_params,
             },
+            "stream": True
         }
+        message["inputs"] = prompt
 
         time_to_next_token = []
         tokens_received = 0
@@ -85,17 +87,19 @@ class SageMakerClient(LLMClient):
 
             event_stream = response["Body"]
             json_byte = b""
+            generated_text = prompt
+            start_json=b"{"
             for line, ttft, _ in LineIterator(event_stream):
-                json_byte += line
                 time_to_next_token.append(
                     time.monotonic() - most_recent_received_token_time
                 )
                 most_recent_received_token_time = time.monotonic()
+                if line != b"" and start_json in line:
+                    data = json.loads(line[line.find(start_json) :].decode("utf-8"))
+                    generated_text += data["token"]["text"]
             ttft = ttft - start_time
-            resp = json.loads(json_byte)
             total_request_time = time.monotonic() - start_time
-            generated_text = resp[0]["generation"]["content"]
-            tokens_received = len(self.tokenizer.encode(generated_text))
+            tokens_received = len(self.tokenizer(generated_text).input_ids)
             output_throughput = tokens_received / total_request_time
 
         except Exception as e:
@@ -106,7 +110,7 @@ class SageMakerClient(LLMClient):
 
         metrics[common_metrics.ERROR_MSG] = error_msg
         metrics[common_metrics.ERROR_CODE] = error_response_code
-        metrics[common_metrics.INTER_TOKEN_LAT] = time_to_next_token
+        metrics[common_metrics.INTER_TOKEN_LAT] = sum(time_to_next_token)
         metrics[common_metrics.TTFT] = ttft
         metrics[common_metrics.E2E_LAT] = total_request_time
         metrics[common_metrics.REQ_OUTPUT_THROUGHPUT] = output_throughput
